@@ -1,4 +1,4 @@
-# Tradutor Distribuído AWS-only com Glossário Compartilhado
+# Tradutor Distribuído AWS com Glossário Compartilhado
 
 Projeto acadêmico do **Tema 4 — Tradutor e localizador distribuído de grandes volumes de texto**.
 

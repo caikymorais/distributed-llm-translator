@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+export AWS_REGION=us-east-1
+export S3_BUCKET=tradutor-distribuido-atv-2026
+export SQS_QUEUE_URL="COLE_AQUI_A_URL_DA_FILA_PRINCIPAL"
+export SQS_DLQ_URL="COLE_AQUI_A_URL_DA_DLQ"
+export DYNAMODB_GLOSSARY_TABLE=TranslationGlossary
+export DYNAMODB_CHUNKS_TABLE=TranslationChunks
+export CLOUDWATCH_NAMESPACE=TradutorDistribuido
+export MODEL_MODE=fake
+export SOURCE_LANG=en
+export TARGET_LANG=pt-BR
+export MAX_CHARS_PER_CHUNK=400
+export MAX_RETRIES=3
+export BACKOFF_BASE_SECONDS=1
+export FAKE_FAILURE_RATE=0.0
+export DOCUMENT_ID=doc_001

@@ -1,26 +1,21 @@
 import json
 import time
-import random
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 from src.config import (
-    MODEL_MODE,
+    BASE_DIR,
     SOURCE_LANG,
     TARGET_LANG,
-    MAX_RETRIES,
-    BACKOFF_BASE_SECONDS,
     DOCUMENT_ID,
+    PROMPT_PATH,
+    SCHEMA_PATH,
 )
-
-BASE_DIR = Path(__file__).resolve().parents[2]
+from src.worker.model_clients import call_model_with_retry
 
 CHUNKS_PATH = BASE_DIR / "data" / "output" / "chunks_local.json"
 TRANSLATED_PATH = BASE_DIR / "data" / "output" / "translated_local.json"
 GLOSSARIO_PATH = BASE_DIR / "data" / "output" / "glossario_local.json"
-
-PROMPT_PATH = BASE_DIR / "prompts" / "system" / "translator_v2.txt"
-SCHEMA_PATH = BASE_DIR / "prompts" / "tools" / "translation_output_schema.json"
 
 
 def carregar_chunks() -> List[Dict]:
@@ -38,6 +33,7 @@ def carregar_glossario() -> Dict[str, str]:
 
 
 def salvar_glossario(glossario: Dict[str, str]) -> None:
+    GLOSSARIO_PATH.parent.mkdir(parents=True, exist_ok=True)
     with GLOSSARIO_PATH.open("w", encoding="utf-8") as f:
         json.dump(glossario, f, ensure_ascii=False, indent=2)
 
@@ -53,10 +49,6 @@ def carregar_schema() -> Dict:
 
 
 def montar_contexto(chunk: Dict, glossario: Dict[str, str], prompt: str, schema: Dict) -> Dict:
-    """
-    Prepara o contexto que seria enviado ao modelo.
-    Mesmo em modo fake, isso mostra a engenharia de contexto explícita.
-    """
     return {
         "system_prompt": prompt,
         "document_id": chunk["document_id"],
@@ -69,76 +61,15 @@ def montar_contexto(chunk: Dict, glossario: Dict[str, str], prompt: str, schema:
     }
 
 
-def fake_traducao(contexto: Dict) -> Dict:
-    """
-    Simula a resposta de um modelo de linguagem.
-    """
-    texto = contexto["input_text"]
-
-    latency_ms = random.randint(400, 1200)
-    time.sleep(latency_ms / 1000.0)
-
-    # SIMULAÇÃO DE FALHA: em ~20% das chamadas, dispara exceção
-    if random.random() < 0.8:
-        raise RuntimeError("Falha simulada na chamada ao modelo")
-
-    translated_text = f"[TRADUZIDO {TARGET_LANG}] {texto[:80]}..."
-
-    new_terms = [
-        {"source": "distributed systems", "target": "sistemas distribuídos"},
-        {"source": "parallel workers", "target": "workers paralelos"},
-    ]
-
-    input_tokens = max(1, len(texto) // 4)
-    output_tokens = max(1, len(translated_text) // 4)
-
-    return {
-        "translated_text": translated_text,
-        "new_terms": new_terms,
-        "metrics": {
-            "llm_latency_ms": latency_ms,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-        },
-    }
-
-
-def chamar_modelo_com_retry(contexto: Dict) -> Dict:
-    """
-    Encapsula a chamada ao modelo com retry + backoff.
-    Por enquanto usa o modo fake.
-    """
-    tentativa = 0
-    ultimo_erro = None
-
-    while tentativa < MAX_RETRIES:
-        try:
-            if MODEL_MODE == "fake":
-                return fake_traducao(contexto)
-            else:
-                raise NotImplementedError(f"MODEL_MODE '{MODEL_MODE}' ainda não implementado")
-        except Exception as e:
-            ultimo_erro = e
-            tentativa += 1
-            if tentativa < MAX_RETRIES:
-                espera = BACKOFF_BASE_SECONDS * tentativa
-                time.sleep(espera)
-
-    raise RuntimeError(f"Falha após {MAX_RETRIES} tentativas: {ultimo_erro}")
-
-
 def processar_chunk(chunk: Dict, glossario: Dict[str, str], worker_id: str) -> Tuple[Dict, Dict[str, str]]:
     inicio = time.time()
-
     prompt = carregar_prompt()
     schema = carregar_schema()
     contexto = montar_contexto(chunk, glossario, prompt, schema)
 
-    resultado_llm = chamar_modelo_com_retry(contexto)
+    resultado_llm = call_model_with_retry(contexto)
 
-    fim = time.time()
-    total_ms = int((fim - inicio) * 1000)
-
+    total_ms = int((time.time() - inicio) * 1000)
     for termo in resultado_llm["new_terms"]:
         src = termo["source"]
         tgt = termo["target"]
@@ -160,17 +91,12 @@ def processar_chunk(chunk: Dict, glossario: Dict[str, str], worker_id: str) -> T
         },
         "status": "OK",
     }
-
     return saida, glossario
 
 
 def main():
-    print(f"Lendo chunks de: {CHUNKS_PATH}")
     chunks = carregar_chunks()
-
     glossario = carregar_glossario()
-    print(f"Glossário inicial tem {len(glossario)} termos")
-
     resultados: List[Dict] = []
     worker_id = "worker-local-1"
 
@@ -180,29 +106,24 @@ def main():
             saida, glossario = processar_chunk(chunk, glossario, worker_id)
             resultados.append(saida)
         except Exception as e:
-            resultados.append(
-                {
-                    "document_id": chunk.get("document_id", DOCUMENT_ID),
-                    "chunk_id": chunk["chunk_id"],
-                    "total_chunks": chunk["total_chunks"],
-                    "translated_text": "",
-                    "new_terms": [],
-                    "metrics": {
-                        "worker_id": worker_id,
-                    },
-                    "status": "ERROR",
-                    "error_message": str(e),
-                }
-            )
+            resultados.append({
+                "document_id": chunk.get("document_id", DOCUMENT_ID),
+                "chunk_id": chunk["chunk_id"],
+                "total_chunks": chunk["total_chunks"],
+                "translated_text": "",
+                "new_terms": [],
+                "metrics": {"worker_id": worker_id},
+                "status": "ERROR",
+                "error_message": str(e),
+            })
 
+    TRANSLATED_PATH.parent.mkdir(parents=True, exist_ok=True)
     with TRANSLATED_PATH.open("w", encoding="utf-8") as f:
         json.dump(resultados, f, ensure_ascii=False, indent=2)
 
     salvar_glossario(glossario)
-
     print(f"Resultados salvos em: {TRANSLATED_PATH}")
     print(f"Glossário atualizado salvo em: {GLOSSARIO_PATH}")
-    print(f"Total de termos no glossário: {len(glossario)}")
 
 
 if __name__ == "__main__":

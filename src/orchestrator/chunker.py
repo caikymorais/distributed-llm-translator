@@ -1,12 +1,9 @@
-import os
-import json
 from pathlib import Path
 from typing import List, Dict
 
 from src.config import BASE_DIR, MAX_CHARS_PER_CHUNK, DOCUMENT_ID
 
 INPUT_PATH = BASE_DIR / "data" / "input" / "corpus_en.txt"
-OUTPUT_PATH = BASE_DIR / "data" / "output" / "chunks_local.json"
 
 
 def carregar_texto(input_path: Path = INPUT_PATH) -> str:
@@ -27,10 +24,7 @@ def agrupar_em_chunks(
     max_chars: int = MAX_CHARS_PER_CHUNK,
     document_id: str = DOCUMENT_ID,
 ) -> List[Dict]:
-    """
-    Agrupa parágrafos em chunks de até max_chars caracteres,
-    tentando não cortar parágrafo no meio.
-    """
+    """Agrupa parágrafos em chunks sem depender de arquivos locais de saída."""
     chunks: List[Dict] = []
     atual: List[str] = []
     atual_len = 0
@@ -69,35 +63,8 @@ def agrupar_em_chunks(
         chunks.append({"chunk_id": chunk_id, "text": "\n\n".join(atual)})
 
     total = len(chunks)
-    for c in chunks:
-        c["document_id"] = document_id
-        c["total_chunks"] = total
+    for chunk in chunks:
+        chunk["document_id"] = document_id
+        chunk["total_chunks"] = total
 
     return chunks
-
-
-def salvar_chunks(chunks: List[Dict], output_path: Path = OUTPUT_PATH) -> None:
-    """Salva os chunks em um JSON local."""
-    os.makedirs(output_path.parent, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(chunks, f, ensure_ascii=False, indent=2)
-    print(f"Chunks salvos em: {output_path}")
-    print(f"Total de chunks: {len(chunks)}")
-
-
-def main():
-    print(f"Lendo texto de: {INPUT_PATH}")
-    texto = carregar_texto(INPUT_PATH)
-    paragrafos = dividir_em_paragrafos(texto)
-    print(f"Parágrafos encontrados: {len(paragrafos)}")
-
-    chunks = agrupar_em_chunks(
-        paragrafos,
-        max_chars=MAX_CHARS_PER_CHUNK,
-        document_id=DOCUMENT_ID,
-    )
-    salvar_chunks(chunks)
-
-
-if __name__ == "__main__":
-    main()

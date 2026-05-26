@@ -1,7 +1,8 @@
-"""Configurações centrais do projeto.
+"""Configurações centrais da versão AWS-only.
 
-As variáveis podem ser definidas no ambiente da EC2. Quando não forem informadas,
-os valores padrão mantêm a execução local funcionando.
+Esta versão foi preparada para apresentação no AWS Academy.
+Não há execução local, Bedrock, Ollama ou API externa. O modelo é simulado
+com MODEL_MODE=fake para validar a arquitetura distribuída com AWS.
 """
 
 import os
@@ -24,27 +25,20 @@ def _env_float(name: str, default: float) -> float:
     return float(value)
 
 
-# Nesta versão, a camada de modelo é exclusivamente simulada/fake.
-# Não há uso de GPU ou API externa.
 MODEL_MODE = "fake"
-
 SOURCE_LANG = os.getenv("SOURCE_LANG", "en")
 TARGET_LANG = os.getenv("TARGET_LANG", "pt-BR")
 MAX_CHARS_PER_CHUNK = _env_int("MAX_CHARS_PER_CHUNK", 400)
-N_WORKERS = _env_int("N_WORKERS", 3)
 MAX_RETRIES = _env_int("MAX_RETRIES", 3)
 BACKOFF_BASE_SECONDS = _env_float("BACKOFF_BASE_SECONDS", 1.0)
 DOCUMENT_ID = os.getenv("DOCUMENT_ID", "doc_001")
-
-# Simulação controlada de falhas do modelo.
-# 0.0 = sem falhas artificiais; 0.1 = 10% de falha simulada.
 FAKE_FAILURE_RATE = _env_float("FAKE_FAILURE_RATE", 0.0)
 
 # AWS Academy / EC2
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 S3_BUCKET = os.getenv("S3_BUCKET", "tradutor-distribuido-atv-2026")
-SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL", "https://sqs.us-east-1.amazonaws.com/031173086984/translation-jobs-queue")
-SQS_DLQ_URL = os.getenv("SQS_DLQ_URL", "https://sqs.us-east-1.amazonaws.com/031173086984/translation-jobs-dlq")
+SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL", "")
+SQS_DLQ_URL = os.getenv("SQS_DLQ_URL", "")
 DYNAMODB_GLOSSARY_TABLE = os.getenv("DYNAMODB_GLOSSARY_TABLE", "TranslationGlossary")
 DYNAMODB_CHUNKS_TABLE = os.getenv("DYNAMODB_CHUNKS_TABLE", "TranslationChunks")
 CLOUDWATCH_NAMESPACE = os.getenv("CLOUDWATCH_NAMESPACE", "TradutorDistribuido")

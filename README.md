@@ -232,8 +232,8 @@ Exemplo de configuração:
 ```bash
 AWS_REGION=us-east-1
 S3_BUCKET=SEU_BUCKET_S3
-SQS_QUEUE_URL=SUA_URL_DA_FILA_PRINCIPAL
-SQS_DLQ_URL=SUA_URL_DA_DLQ
+SQS_QUEUE_URL="https://sqs.us-east-1.amazonaws.com/031173086984/translation-jobs-queue"
+SQS_DLQ_URL="https://sqs.us-east-1.amazonaws.com/031173086984/translation-jobs-dlq"
 DYNAMODB_GLOSSARY_TABLE=TranslationGlossary
 DYNAMODB_CHUNKS_TABLE=TranslationChunks
 CLOUDWATCH_NAMESPACE=TradutorDistribuido
@@ -464,27 +464,3 @@ DocumentId
 WorkerId
 ```
 
----
-
-## 13. Demonstração Recomendada
-
-1. Mostrar o bucket S3 com as pastas e arquivos.
-2. Executar o orquestrador e mostrar mensagens no SQS.
-3. Rodar `worker-1` e `worker-2` em EC2 diferentes.
-4. Mostrar a tabela `TranslationChunks` com status `DONE`.
-5. Mostrar a tabela `TranslationGlossary` preenchida.
-6. Mostrar os resultados em `outputs/doc_001/chunks/` no S3.
-7. Executar o coletor final.
-8. Mostrar `final_translation.txt` no S3.
-9. Mostrar as métricas no CloudWatch.
-10. Mostrar a DLQ vazia ou executar um teste controlado de falha.
-
----
-
-## 14. Limitações
-
-- A tradução é simulada com `MODEL_MODE=fake`.
-- O sistema não avalia qualidade linguística real.
-- O glossário é simples, usando chave `source_term`.
-- A coleta de métricas é suficiente para análise acadêmica, mas poderia ser ampliada com dashboards automatizados.
-- A infraestrutura foi pensada para AWS Academy, com foco em simplicidade e reprodutibilidade.
